@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>電子小雞遊戲</title>
+    
+    <!-- 引入像素風格字體 -->
+    <link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
+
+    <!-- ==========================================
+         CSS 樣式部分
+         ========================================== -->
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            /* 使用像素字體 */
+            font-family: 'DotGothic16', sans-serif;
+            /* 復古網格背景 */
+            background-color: #f0f0f0;
+            background-image: 
+                linear-gradient(#e0e0e0 1px, transparent 1px),
+                linear-gradient(90deg, #e0e0e0 1px, transparent 1px);
+            background-size: 20px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+
+        /* --- 開始畫面樣式 --- */
+        #start-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        #start-screen h1 {
+            font-size: 3rem;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 0px #fff, 4px 4px 0px rgba(0,0,0,0.1);
+            color: #2d3436;
+        }
+
+        #btn-start {
+            background-color: #55efc4; 
+            color: #2d3436;
+            font-size: 1.5rem;
+            padding: 15px 30px;
+            border: 4px solid #2d3436;
+            cursor: pointer;
+            animation: pulse 1.5s infinite;
+            font-family: 'DotGothic16', sans-serif;
+            box-shadow: 4px 4px 0px rgba(0,0,0,0.2);
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        /* --- 遊戲機外殼 --- */
+        #game-console {
+            background-color: #fab1a0;
+            padding: 30px;
+            border-radius: 20px;
+            border: 4px solid #e17055;
+            box-shadow: 
+                inset -5px -5px 15px rgba(0,0,0,0.1),
+                10px 10px 30px rgba(0,0,0,0.2);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* --- 數值儀表板 --- */
+        #stats-panel {
+            width: 320px;
+            max-width: 100%;
+            background: #2d3436;
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            color: white;
+            border: 4px solid #636e72;
+            font-size: 1rem;
+            box-shadow: inset 4px 4px 8px rgba(0,0,0,0.6), 2px 2px 0px rgba(255,255,255,0.3);
+        }
+
+        .stat-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .stat-row:last-child { margin-bottom: 0; }
+
+        .stat-label {
+            width: 60px;
+            text-shadow: 1px 1px 0 #000;
+        }
+
+        .bar-bg {
+            flex-grow: 1;
+            height: 12px;
+            background: #2d3436;
+            border: 2px solid #fff;
+            position: relative;
+        }
+
+        .bar-fill {
+            height: 100%;
+            background: #55efc4;
+            width: 50%;
+            transition: width 0.3s ease, background-color 0.3s ease;
+        }
+
+        /* --- 遊戲主螢幕 --- */
+        #game-screen {
+            position: relative; 
+            width: 320px;
+            height: 240px;
+            border: 6px solid #2d3436;
+            border-radius: 10px;
+            overflow: hidden;
+            background-color: #81ecec;
+            box-shadow: inset 0 0 15px rgba(0,0,0,0.3);
+        }
+
+        #bg-image {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: 1;
+            image-rendering: pixelated;
+        }
+
+        #chick-image {
+            position: absolute;
+            bottom: 60px; /* 位置再往上調 */
+            left: 50%;
+            transform: translateX(-50%);
+            width: 160px; /* 寬度再放大 */
+            z-index: 2;
+            image-rendering: pixelated;
+            cursor: pointer; /* 新增：游標變成手指，提示可互動 */
+            transition: transform 0.1s; /* 新增：點擊動畫過渡時間 */
+        }
+
+        /* 新增：點擊(觸碰)小雞時會有被按壓的微縮小效果 */
+        #chick-image:active {
+            transform: translateX(-50%) scale(0.95);
+        }
+
+        /* 小雞特效 */
+        #chick-image.is-eating { transform: translateX(-50%) scale(1.1); }
+        #chick-image.is-sleeping {
+            animation: breathe 2s infinite ease-in-out;
+            filter: drop-shadow(4px 4px 0px rgba(0,0,0,0.2)) brightness(0.8);
+        }
+
+        @keyframes breathe {
+            0%, 100% { transform: translateX(-50%) scaleY(1); }
+            50% { transform: translateX(-50%) scaleY(0.95) translateY(2px); }
+        }
+
+        /* --- 小雞對話框 --- */
+        .speech-bubble {
+            position: absolute;
+            bottom: 170px; /* 往下移，確保不會超出螢幕頂部被隱藏 */
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: white;
+            color: #2d3436;
+            padding: 8px 12px;
+            border: 4px solid #2d3436;
+            font-size: 0.9rem;
+            text-align: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease, margin-bottom 0.3s ease;
+            z-index: 15;
+            min-width: 120px;
+            box-shadow: 4px 4px 0px rgba(0,0,0,0.2);
+            margin-bottom: -10px;
+        }
+
+        .speech-bubble.show {
+            opacity: 1;
+            margin-bottom: 0;
+        }
+
+        .speech-bubble::after {
+            content: '';
+            position: absolute;
+            bottom: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-width: 8px 8px 0;
+            border-style: solid;
+            border-color: #2d3436 transparent transparent transparent;
+        }
+
+        .speech-bubble::before {
+            content: '';
+            position: absolute;
+            bottom: -6px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-width: 6px 6px 0;
+            border-style: solid;
+            border-color: white transparent transparent transparent;
+            z-index: 1;
+        }
+
+        /* --- 螢幕特效層 --- */
+        .crt-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.15) 50%);
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .night-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 20, 0.5);
+            opacity: 0;
+            transition: opacity 1s ease;
+            pointer-events: none;
+            z-index: 5;
+        }
+        .night-overlay.active { opacity: 1; }
+
+        #particles-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 8;
+        }
+
+        .particle {
+            position: absolute;
+            font-weight: bold;
+            animation: floatUp 1.5s ease-out forwards;
+            text-shadow: 1px 1px 0 #000;
+        }
+
+        .particle.heart { color: #ff7675; font-size: 1.2rem; }
+        .particle.zzz { color: #a29bfe; font-size: 1.1rem; }
+
+        @keyframes floatUp {
+            0% { transform: translateY(0) scale(0.8); opacity: 1; }
+            50% { transform: translateY(-20px) scale(1.2); opacity: 0.8; }
+            100% { transform: translateY(-40px) scale(1); opacity: 0; }
+        }
+
+        /* --- 控制按鈕區 --- */
+        #controls {
+            display: flex;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            font-family: 'DotGothic16', sans-serif;
+            padding: 10px 20px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #2d3436;
+            border: 4px solid #2d3436;
+            cursor: pointer;
+            box-shadow: 4px 4px 0px rgba(0,0,0,0.3);
+            background-color: #fff;
+        }
+
+        .btn:active {
+            transform: translate(4px, 4px);
+            box-shadow: 0px 0px 0px rgba(0,0,0,0.3);
+        }
+
+        #btn-feed { background-color: #fdcb6e; }
+        #btn-sleep { background-color: #74b9ff; }
+
+        /* LED 狀態指示燈 */
+        .status-light {
+            width: 12px;
+            height: 12px;
+            background-color: #00b894;
+            border-radius: 50%;
+            border: 2px solid #2d3436;
+            margin: 15px auto 0;
+            box-shadow: 0 0 8px #00b894;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 開始畫面 -->
+    <div id="start-screen">
+        <h1>🐔 電子小雞</h1>
+        <button id="btn-start" class="btn">[ 開始遊戲 ]</button>
+    </div>
+
+    <!-- 遊戲機本體 -->
+    <div id="game-console" style="display: none;">
+        
+        <!-- 數值儀表板 -->
+        <div id="stats-panel">
+            <div class="stat-row">
+                <span class="stat-label">飢餓度</span>
+                <div class="bar-bg"><div class="bar-fill" id="bar-hunger"></div></div>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">疲勞值</span>
+                <div class="bar-bg"><div class="bar-fill" id="bar-fatigue"></div></div>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">好感度</span>
+                <div class="bar-bg"><div class="bar-fill" id="bar-affection"></div></div>
+            </div>
+        </div>
+
+        <!-- 遊戲主畫面（螢幕） -->
+        <div id="game-screen">
+            <img id="bg-image" src="room.png" alt="房間背景">
+            <img id="chick-image" src="chick.png" alt="小雞">
+            
+            <div id="speech-bubble" class="speech-bubble"></div>
+            <div id="night-overlay" class="night-overlay"></div>
+            <div id="particles-container"></div>
+            <div class="crt-overlay"></div>
+        </div>
+
+        <!-- 狀態指示燈 -->
+        <div id="status-light" class="status-light"></div>
+
+        <!-- 互動控制面板 -->
+        <div id="controls">
+            <button id="btn-feed" class="btn">🍖 餵食</button>
+            <button id="btn-sleep" class="btn">💤 睡覺</button>
+        </div>
+    </div>
+
+    <!-- ==========================================
+         JavaScript 邏輯部分
+         ========================================== -->
+    <script>
+        // === 1. 取得 DOM 元素 ===
+        const startScreen = document.getElementById('start-screen');
+        const gameConsole = document.getElementById('game-console');
+        const btnStart = document.getElementById('btn-start');
+
+        const chickImage = document.getElementById('chick-image');
+        const bgImage = document.getElementById('bg-image');
+        const btnFeed = document.getElementById('btn-feed');
+        const btnSleep = document.getElementById('btn-sleep');
+        const statusLight = document.getElementById('status-light');
+
+        const nightOverlay = document.getElementById('night-overlay');
+        const particlesContainer = document.getElementById('particles-container');
+        const speechBubble = document.getElementById('speech-bubble');
+
+        const barHunger = document.getElementById('bar-hunger');
+        const barFatigue = document.getElementById('bar-fatigue');
+        const barAffection = document.getElementById('bar-affection');
+
+        // === 2. 定義資源與狀態 ===
+        const ASSETS = {
+            normal: 'chick.png',
+            eat: 'eat.png', // 吃飯改回 png
+            sleep: 'sleep.png',
+            room: 'room.png'
+        };
+
+        const FALLBACKS = {
+            normal: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/255.png',
+            eat: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/255.png',
+            sleep: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/back/255.png',
+            room: 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?ixlib=rb-4.0.3&auto=format&fit=crop&w=320&q=80'
+        };
+
+        let currentState = 'normal';
+        let feedTimer = null;
+        let sleepParticleTimer = null;
+
+        let hunger = 30;  
+        let fatigue = 20; 
+        let affection = 50; 
+        let gameLoopTimer = null; 
+        let talkTimer = null;
+        let hideBubbleTimer = null;
+
+        const dialogues = {
+            normal: ['咕咕！', '主人今天過得好嗎？', '(*發呆*)', '今天天氣真好！', '想要有人陪我玩...', '地上有蟲蟲嗎？'],
+            hungry: ['肚子好餓喔...', '咕嚕嚕...', '主人，我想要吃飯飯！'],
+            tired:  ['好睏喔...', '眼睛快睜不開了...', '打哈欠～'],
+            happy:  ['最喜歡主人了❤', '貼貼～', '咕咕！(開心)'],
+            sad:    ['都不理我...', '討厭主人...', '想離家出走...'],
+            maxAffection: ['我是世界上最幸福的小雞！', '好愛好愛主人喔，永遠不分開！', '最～喜～歡～你～了！✨', '我的心裡全是你！❤'],
+            zeroAffection: ['再見了，無情的人...', '心碎了，不會再愛了...', '我是一隻沒有人要的小雞...', '我要離家出走了...再見。']
+        };
+
+        // === 3. 輔助功能 ===
+        bgImage.onerror = () => { bgImage.src = FALLBACKS.room; };
+
+        function spawnParticle(type) {
+            const particle = document.createElement('div');
+            particle.classList.add('particle', type);
+            if (type === 'heart') {
+                particle.innerText = '❤';
+                particle.style.left = (40 + (Math.random() * 20)) + '%';
+                particle.style.bottom = (30 + Math.random() * 10) + '%';
+            } else if (type === 'zzz') {
+                particle.innerText = 'Zzz';
+                particle.style.left = (50 + (Math.random() * 20)) + '%';
+                particle.style.bottom = (50 + Math.random() * 10) + '%';
+            }
+            particlesContainer.appendChild(particle);
+            setTimeout(() => { particle.remove(); }, 1500); 
+        }
+
+        function updateStatsUI() {
+            hunger = Math.max(0, Math.min(100, hunger));
+            fatigue = Math.max(0, Math.min(100, fatigue));
+            affection = Math.max(0, Math.min(100, affection)); 
+
+            barHunger.style.width = hunger + '%';
+            barFatigue.style.width = fatigue + '%';
+            barAffection.style.width = affection + '%'; 
+
+            barHunger.style.backgroundColor = hunger > 75 ? '#ff7675' : (hunger > 40 ? '#fdcb6e' : '#55efc4');
+            barFatigue.style.backgroundColor = fatigue > 75 ? '#ff7675' : (fatigue > 40 ? '#fdcb6e' : '#55efc4');
+            barAffection.style.backgroundColor = affection > 70 ? '#fd79a8' : (affection > 30 ? '#55efc4' : '#b2bec3');
+        }
+
+        // --- 修正：說話功能 ---
+        function chickTalk() {
+            if (currentState !== 'normal') return;
+
+            let lines = dialogues.normal;
+            
+            if (affection <= 0) {
+                lines = dialogues.zeroAffection; 
+            } else if (affection >= 100) {
+                lines = dialogues.maxAffection;  
+            } else if (affection < 30) {
+                lines = dialogues.sad; 
+            } else if (hunger > 70) {
+                lines = dialogues.hungry;
+            } else if (fatigue > 70) {
+                lines = dialogues.tired;
+            } else if (affection > 80) {
+                lines = dialogues.happy; 
+            }
+
+            const randomLine = lines[Math.floor(Math.random() * lines.length)];
+            speechBubble.innerText = randomLine;
+            speechBubble.classList.add('show');
+
+            if (hideBubbleTimer) clearTimeout(hideBubbleTimer);
+            hideBubbleTimer = setTimeout(() => {
+                speechBubble.classList.remove('show');
+            }, 3000);
+        }
+
+        // --- 修正：遊戲主迴圈 ---
+        function startGameLoop() {
+            updateStatsUI();
+
+            gameLoopTimer = setInterval(() => {
+                if (currentState === 'normal') {
+                    hunger += 0.5;   
+                    fatigue += 0.2;  
+                } else if (currentState === 'eating') {
+                    hunger -= 8;     
+                    fatigue += 0.2;  
+                } else if (currentState === 'sleeping') {
+                    hunger += 0.1;   
+                    fatigue -= 3;    
+                    if (fatigue <= 0) {
+                        fatigue = 0; 
+                        updateChickState('normal', 'normal');
+                    }
+                }
+                
+                if (hunger >= 100 || fatigue >= 100) {
+                    affection -= 2; 
+                }
+
+                updateStatsUI();
+            }, 1000);
+        }
+
+        function updateChickState(stateName, assetKey) {
+            currentState = stateName;
+            chickImage.src = ASSETS[assetKey];
+            
+            chickImage.onerror = () => { chickImage.src = FALLBACKS[assetKey]; };
+
+            chickImage.classList.remove('is-eating', 'is-sleeping');
+            nightOverlay.classList.remove('active'); 
+            
+            speechBubble.classList.remove('show');
+            if (hideBubbleTimer) clearTimeout(hideBubbleTimer);
+            
+            if (sleepParticleTimer) {
+                clearInterval(sleepParticleTimer);
+                sleepParticleTimer = null;
+            }
+
+            if (stateName === 'eating') {
+                chickImage.classList.add('is-eating');
+                statusLight.style.backgroundColor = '#fdcb6e'; 
+                statusLight.style.boxShadow = '0 0 8px #fdcb6e';
+                
+                spawnParticle('heart');
+                setTimeout(() => spawnParticle('heart'), 300);
+                setTimeout(() => spawnParticle('heart'), 600);
+
+            } else if (stateName === 'sleeping') {
+                chickImage.classList.add('is-sleeping');
+                nightOverlay.classList.add('active'); 
+                statusLight.style.backgroundColor = '#a29bfe'; 
+                statusLight.style.boxShadow = '0 0 8px #a29bfe';
+                
+                spawnParticle('zzz');
+                sleepParticleTimer = setInterval(() => spawnParticle('zzz'), 1000);
+
+            } else {
+                statusLight.style.backgroundColor = '#00b894'; 
+                statusLight.style.boxShadow = '0 0 8px #00b894';
+            }
+        }
+
+        // 初始化
+        updateChickState('normal', 'normal');
+
+        // === 4. 事件監聽器 ===
+        // --- 新增：觸碰(點擊)小雞的互動 ---
+        chickImage.addEventListener('click', () => {
+            // 只有在正常狀態下才可以摸摸互動
+            if (currentState === 'normal') {
+                chickTalk(); // 觸發小雞說話
+                
+                // 摸摸小雞可以增加 1 點好感度當作獎勵
+                affection += 1;
+                updateStatsUI();
+            }
+        });
+
+        btnStart.addEventListener('click', () => {
+            startScreen.style.display = 'none';
+            gameConsole.style.display = 'flex';
+            
+            startGameLoop();
+
+            talkTimer = setInterval(() => {
+                if (Math.random() > 0.3) chickTalk();
+            }, 8000);
+        });
+
+        btnFeed.addEventListener('click', () => {
+            updateChickState('eating', 'eat');
+
+            if (hunger > 20) { affection += 5; } 
+            else { affection += 1; }
+            updateStatsUI(); 
+
+            if (feedTimer) clearTimeout(feedTimer);
+            feedTimer = setTimeout(() => {
+                if (currentState === 'eating') updateChickState('normal', 'normal');
+            }, 3000);
+        });
+
+        btnSleep.addEventListener('click', () => {
+            updateChickState('sleeping', 'sleep');
+
+            if (fatigue > 30) { affection += 5; }
+            updateStatsUI(); 
+
+            if (feedTimer) {
+                clearTimeout(feedTimer);
+                feedTimer = null;
+            }
+        });
+    </script>
+</body>
+</html>
